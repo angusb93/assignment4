@@ -6,10 +6,12 @@ typedef int Vertex;
 typedef struct Edge {
     Vertex v;
     Vertex w;
+    int d;
 } Edge;
 
 typedef struct Node {
     Vertex v;
+    int d;
     struct Node *next;
 } Node;
 
@@ -38,7 +40,7 @@ bool inLL(Node *list_start, Vertex v)
 
 
 
-Node * insertLL(Node *firstNode, Vertex new_vert)
+Node * insertLL(Node *firstNode, Vertex new_vert, int d)
 {
     /* 1. allocate node */
     struct Node* new_node = (struct Node*) malloc(sizeof(struct Node));
@@ -47,6 +49,7 @@ Node * insertLL(Node *firstNode, Vertex new_vert)
 
     /* 2. put in the data  */
     new_node->v  = new_vert;
+    new_node->d = d;
 
     /* 3. This new node is going to be the last node, so make next
           of it as NULL*/
@@ -102,12 +105,8 @@ bool validV(Graph g, Vertex v){
 
 void insertEdge(Graph g, Edge e) {
     assert(g != NULL && validV(g,e.v) && validV(g,e.w));
-    if(e.v == 44 && e.w == 45){
-        int x =9;
-    }
     if (!inLL(g->edges[e.v], e.w)) {
-        g->edges[e.v] = insertLL(g->edges[e.v], e.w);
-        //g->edges[e.w] = insertLL(g->edges[e.w], e.v);
+        g->edges[e.v] = insertLL(g->edges[e.v], e.w, e.d);
         g->nE++;
     }
 }
@@ -136,7 +135,7 @@ void printGraph(Graph graph)
         printf("\n Adjacency list of vertex %d\n ", v);
         while (temp)
         {
-            printf("%d -> ", temp->v);
+            printf(" -> (Num:%d, dist:%d)", temp->v,temp->d);
             temp = temp->next;
         }
         printf("\n");
@@ -155,8 +154,8 @@ int main() {
     while (fscanf(file, "%d-%d:%d", &v, &w, &d) == 3){
         e.v = v;
         e.w = w;
+        e.d = d;
         insertEdge(g,e);
-        //printf("%d,%d,%d\n", v,w,d);
     }
     printGraph(g);
 
