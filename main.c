@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include "stdlib.h"
 #include "assert.h"
+#include "string.h"
+
 typedef int Vertex;
 typedef struct Edge {
     Vertex v;
@@ -142,21 +144,42 @@ void printGraph(Graph graph)
     }
 }
 
-int main() {
-    Graph g = newGraph(46);
-    Edge e;
-    int v, w, d;
-    FILE* file = fopen("distance.txt", "r"); // open a file
-    if(file == NULL) {
+Graph buildGraph(char *distance, char *busstops) {
+    // find number of vertex's for size of graph
+    char str[100];
+    char size[100];
+
+    FILE *stops = fopen(busstops, "r");
+    if (stops){
+        while( fgets(str, sizeof(str), stops)!=NULL );
+    }
+    else{
         printf("Could not find file\n");
         return 0;                                   // error checking
     }
-    while (fscanf(file, "%d-%d:%d", &v, &w, &d) == 3){
-        e.v = v;
-        e.w = w;
-        e.d = d;
-        insertEdge(g,e);
+    strncpy(size, str, 2);
+    size[2] = '\0'; // null terminate destination
+    int sizeInt = atoi(size) + 1; //needed size of graph
+
+    Graph g = newGraph(sizeInt); //build empty graph
+    Edge e;
+    int v, w, d;
+    FILE *file = fopen(distance, "r"); // open a file
+    if (file) {
+        while (fscanf(file, "%d-%d:%d", &v, &w, &d) == 3) {
+            e.v = v;
+            e.w = w;
+            e.d = d;
+            insertEdge(g, e); // insert edges to build graph
+        }
+    }else{
+        printf("Could not find file\n");
+        return 0;
     }
+    return g;
+}
+int main() {
+    Graph g = buildGraph("distance.txt","BusStops.txt");
     printGraph(g);
 
 }
