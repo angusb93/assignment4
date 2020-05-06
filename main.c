@@ -3,6 +3,7 @@
 #include "stdlib.h"
 #include "assert.h"
 #include "string.h"
+#include <limits.h>
 
 typedef int Vertex;
 typedef struct Edge {
@@ -15,6 +16,7 @@ typedef struct Node {
     Vertex v;
     int d;
     struct Node *next;
+    int visited;
 } Node;
 
 void printLL(struct Node* n)
@@ -40,8 +42,6 @@ bool inLL(Node *list_start, Vertex v)
     return false;
 }
 
-
-
 Node * insertLL(Node *firstNode, Vertex new_vert, int d)
 {
     /* 1. allocate node */
@@ -52,6 +52,7 @@ Node * insertLL(Node *firstNode, Vertex new_vert, int d)
     /* 2. put in the data  */
     new_node->v  = new_vert;
     new_node->d = d;
+    new_node->visited = 0;
 
     /* 3. This new node is going to be the last node, so make next
           of it as NULL*/
@@ -73,11 +74,57 @@ Node * insertLL(Node *firstNode, Vertex new_vert, int d)
     return firstNode;
 }
 
-
-
 void deleteLL(struct Node* n)
 {
 
+}
+
+struct Stack {
+    int top;
+    unsigned capacity;
+    int* array;
+}Stack;
+
+struct Stack* createStack(unsigned capacity)
+{
+    struct Stack* stack = (struct Stack*)malloc(sizeof(struct Stack));
+    stack->capacity = capacity;
+    stack->top = -1;
+    stack->array = (int*)malloc(stack->capacity * sizeof(int));
+    return stack;
+}
+
+int isFull(struct Stack* stack)
+{
+    return stack->top == stack->capacity - 1;
+}
+
+int isEmpty(struct Stack* stack)
+{
+    return stack->top == -1;
+}
+
+void push(struct Stack* stack, Vertex item)
+{
+    if (isFull(stack))
+        return;
+    stack->array[++stack->top] = item;
+    //printf("%d pushed to stack\n", item);
+}
+
+Vertex pop(struct Stack* stack)
+{
+    if (isEmpty(stack))
+        return INT_MIN;
+    return stack->array[stack->top--];
+}
+
+// Function to return the top from stack without removing it
+int peek(struct Stack* stack)
+{
+    if (isEmpty(stack))
+        return INT_MIN;
+    return stack->array[stack->top];
 }
 
 typedef struct GraphRep {
@@ -93,11 +140,13 @@ Graph newGraph(int n) {
     assert(n >= 0);
     Graph g = malloc(sizeof(GraphRep));
     assert(g != NULL);
-    g->nV = n; g->nE = 0;
+    g->nV = n;
+    g->nE = 0;
     g->edges = malloc(g->nV * sizeof(Node *));
     assert(g->edges != NULL);
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++) {
         g->edges[i] = NULL;
+    }
     return g;
 }
 
@@ -137,14 +186,14 @@ void printGraph(Graph graph)
         printf("\n Adjacency list of vertex %d\n ", v);
         while (temp)
         {
-            printf(" -> (Num:%d, dist:%d)", temp->v,temp->d);
+            printf(" -> (Num:%d, dist:%d, visited:%d)", temp->v,temp->d,temp->visited);
             temp = temp->next;
         }
         printf("\n");
     }
 }
 
-Graph buildGraph(char *distance, char *busstops) {
+Graph buildGraph(char *distance, char *busstops, bool transpose) {
     // find number of vertex's for size of graph
     char str[100];
     char size[100];
@@ -167,10 +216,17 @@ Graph buildGraph(char *distance, char *busstops) {
     FILE *file = fopen(distance, "r"); // open a file
     if (file) {
         while (fscanf(file, "%d-%d:%d", &v, &w, &d) == 3) {
-            e.v = v;
-            e.w = w;
-            e.d = d;
-            insertEdge(g, e); // insert edges to build graph
+            if(transpose == false) {
+                e.v = v;
+                e.w = w;
+                e.d = d;
+                insertEdge(g, e); // insert edges to build graph
+            } else{
+                e.v = w;
+                e.w = v;
+                e.d = d;
+                insertEdge(g, e); // insert edges to build graph
+            }
         }
     }else{
         printf("Could not find file\n");
@@ -178,8 +234,142 @@ Graph buildGraph(char *distance, char *busstops) {
     }
     return g;
 }
+
+
+void DFS(Graph graph, Vertex v) {
+    Node *adjList = graph->edges[v];
+    Node *temp = adjList;
+
+    graph->edges[v]->visited = 1;
+    printf("Visited %d\n", v);
+    while(temp) {
+        Vertex connectedVertex = temp->v;
+        if(!graph->edges[connectedVertex]){
+            break;
+        }
+        if(graph->edges[connectedVertex]->visited == 0) {
+            DFS(graph, connectedVertex);
+        }
+        temp = temp->next;
+    }
+}
+
+void fillOrder(Graph graph, Vertex v, struct Stack* stack) {
+    Node *adjList = graph->edges[v];
+    Node *temp = adjList;
+
+    graph->edges[v]->visited = 1;
+    //printf("Visited %d\n", v);
+    while(temp) {
+        Vertex connectedVertex = temp->v;
+//        if(!graph->edges[connectedVertex]){
+//            break;
+//        }
+        if(graph->edges[connectedVertex]->visited == 0) {
+            DFS(graph, connectedVertex);
+        }
+        temp = temp->next;
+    }
+    push(stack, v);
+}
+
+int StronglyConnectivity(const char *distance, const char *busStops){
+
+    Graph g = buildGraph(distance,busStops, false);
+    Graph g_t = buildGraph(distance,busStops, true);
+    Vertex v = 0;
+
+    // Step 2: Do DFS traversal starting from first vertex.
+    DFS(g, v);
+
+    // If DFS traversal doesn’t visit all vertices, then return false.
+
+    int x;
+    for (x = 0; x < g->nV; x++)
+    {
+        Node *temp;
+        temp = g->edges[x];
+        if(!g->edges[x]->visited){
+            return 0;
+        }
+        while (temp)
+        {
+            if(temp->visited == 0){
+                return 0;
+            }
+            temp = temp->next;
+        }
+        //printf("\n");
+    }
+
+    // Step 5: Do DFS for reversed graph starting from first vertex.
+    DFS(g_t, v);
+
+
+    // If all vertices are not visited in second DFS, then
+    // return false
+    x=0;
+    for (x = 0; x < g->nV; x++)
+    {
+        Node *temp;
+        temp = g_t->edges[x];
+        if(!g_t->edges[x]->visited){
+            return 0;
+        }
+        while (temp)
+        {
+            if(!temp->visited){
+                return 0;
+            }
+            temp = temp->next;
+        }
+    }
+    return 1;
+
+}
+
+
+void maximalStronlyComponents(const char *distance, const char *busStops){
+    Graph g = buildGraph(distance,busStops, false);
+    Graph g_t = buildGraph(distance,busStops, true);
+    Vertex v = 0;
+    struct Stack* stack = createStack(100);
+
+    for (int i = 0; i < g->nV ; ++i) {
+        fillOrder(g, v, stack);
+    }
+    int cnt = 0;
+    while(stack->top != -1){
+        Vertex v = stack->top;
+        pop(stack);
+
+        if (g_t->edges[v]->visited == false){
+            //DFS(g_t, v);
+            //printf("\n");
+            printf("Strongly connected component %d: bus stop %d of this strongly connected component\n",cnt,v);
+        }
+        cnt++;
+
+    }
+
+}
+
+void reachableStops(const char *sourceStop, const char *busStops, const char
+*BusNames, const char *BusRoutes, const char *Distance){
+
+}
+
+
+
 int main() {
-    Graph g = buildGraph("distance.txt","BusStops.txt");
+    Graph g = buildGraph("distance.txt","BusStops.txt", false);
     printGraph(g);
+    Vertex v = 30;
+    int res = StronglyConnectivity("distance.txt","BusStops.txt");
+    if (res==0)
+        printf("Graph is not strongly connected\n");
+    else
+        printf("graph IS strongly connected\n");
+    maximalStronlyComponents("distance.txt","BusStops.txt");
 
 }
